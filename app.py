@@ -1,8 +1,7 @@
 import streamlit as st
-from passporteye import read_mrz
-from datetime import datetime
 from PIL import Image
 import io
+from mrz.reader import read_mrz
 import tempfile
 
 # Optional: Paste image support
@@ -35,7 +34,6 @@ with col2:
     )
 
 st.markdown("---")
-
 st.markdown(
     "📸 **Upload or paste (Ctrl + V)** your passport image below. "
     "The tool extracts MRZ details and generates the **Amadeus DOCS** command automatically."
@@ -57,7 +55,7 @@ elif pasted_image is not None:
 # --- Helper function ---
 def format_date(date_str):
     try:
-        return datetime.strptime(date_str, "%y%m%d").strftime("%d%b%y").upper()
+        return f"{date_str[0:2]}{date_str[2:4]}{date_str[4:6]}"  # simple DDMMYY placeholder
     except Exception:
         return ""
 
@@ -68,19 +66,17 @@ if image_data:
         temp_file.write(image_data)
         temp_file_path = temp_file.name
 
-    mrz = read_mrz(temp_file_path)
+    mrz_result = read_mrz(temp_file_path)
 
-    if mrz:
-        data = mrz.to_dict()
-
-        surname = data.get('surname', '').strip()
-        given_names = data.get('names', '').strip()
-        nationality = data.get('nationality', '').strip()
-        passport_number = data.get('number', '').strip()
-        dob = data.get('date_of_birth', '').strip()
-        sex = data.get('sex', '').strip()
-        expiry = data.get('expiration_date', '').strip()
-        issuing_country = data.get('country', '').strip()
+    if mrz_result.valid:
+        surname = mrz_result.surname.replace("<", " ").strip()
+        given_names = mrz_result.given_names.replace("<", " ").strip()
+        nationality = mrz_result.nationality.strip()
+        passport_number = mrz_result.number.strip()
+        dob = mrz_result.date_of_birth.strip()
+        sex = mrz_result.sex.strip()
+        expiry = mrz_result.expiration_date.strip()
+        issuing_country = mrz_result.country.strip()
 
         st.success("✅ MRZ data extracted successfully!")
 
@@ -89,11 +85,11 @@ if image_data:
             st.write("**Surname:**", surname)
             st.write("**Given Names:**", given_names)
             st.write("**Gender:**", sex)
-            st.write("**Date of Birth:**", format_date(dob))
+            st.write("**Date of Birth:**", dob)
         with col2:
             st.write("**Nationality:**", nationality)
             st.write("**Passport #:**", passport_number)
-            st.write("**Expiry:**", format_date(expiry))
+            st.write("**Expiry:**", expiry)
             st.write("**Issuing Country:**", issuing_country)
 
         st.divider()
@@ -103,13 +99,14 @@ if image_data:
         docs_command = (
             f"SR DOCS {airline_code} HK1 P/"
             f"{nationality}/{passport_number}/{issuing_country}/"
-            f"{format_date(dob)}/{sex}/{format_date(expiry)}/"
+            f"{dob}/{sex}/{expiry}/"
             f"{surname}/{given_names.replace(' ', '')}"
         )
 
         st.text_area("Amadeus DOCS Command:", docs_command, height=80)
         st.caption("✈️ Copy and paste this directly into Amadeus PNR.")
+
     else:
-        st.error("❌ Could not read MRZ. Try a clearer passport image.")
+        st.error("❌ Could not read MRZ. Make sure the passport image is clear.")
 else:
     st.info("👉 Paste (Ctrl + V) or upload a passport image to start.")
