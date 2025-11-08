@@ -11,27 +11,20 @@ try:
 except ImportError:
     convert_from_bytes = None
 
-# Optional: For pasted screenshots
-try:
-    from streamlit_paste import paste_image
-except ImportError:
-    paste_image = None
-
 # --- Streamlit page config ---
 st.set_page_config(page_title="TEZ Tours Passport MRZ Reader")
 st.title("🛫 TEZ Tours Passport MRZ Reader")
 
 st.markdown("""
-📸 Upload or paste a passport image (JPG/PNG) or PDF.
+📸 Upload a passport image (JPG/PNG) or PDF, or drag & drop a screenshot.
 The app will extract MRZ details and validate them against the passport details.
 """)
 
-# --- Upload or paste file ---
-uploaded_file = st.file_uploader("Upload a passport image or PDF", type=["jpg", "jpeg", "png", "pdf"])
-
-pasted_image = None
-if paste_image:
-    pasted_image = paste_image()
+# --- Upload file ---
+uploaded_file = st.file_uploader(
+    "Upload a passport image or PDF (or paste a screenshot as file)", 
+    type=["jpg", "jpeg", "png", "pdf"]
+)
 
 image_list = []
 
@@ -53,46 +46,27 @@ if uploaded_file:
         except Exception as e:
             st.error(f"Failed to read image: {e}")
 
-# Handle pasted image
-if pasted_image is not None:
-    image_list.append(pasted_image)
-
 # --- Helper functions ---
 def format_date(date_str):
-    """Convert YYMMDD to DDMMMYY format (Amadeus style)."""
     try:
         return datetime.strptime(date_str, "%y%m%d").strftime("%d%b%y").upper()
     except Exception:
         return ""
 
 def extract_mrz_and_validate(img: Image.Image):
-    """Extract MRZ and validate passport details."""
     mrz = read_mrz(img)
     if not mrz:
         return None, "❌ MRZ not detected."
-
     data = mrz.to_dict()
-
-    # Extract MRZ fields
-    surname = data.get("surname", "").strip()
-    given_names = data.get("names", "").strip()
-    nationality = data.get("nationality", "").strip()
-    passport_number = data.get("number", "").strip()
-    dob = data.get("date_of_birth", "").strip()
-    sex = data.get("sex", "").strip()
-    expiry = data.get("expiration_date", "").strip()
-    issuing_country = data.get("country", "").strip()
-
-    # Optional: Add validation logic here if needed
     return {
-        "surname": surname,
-        "given_names": given_names,
-        "nationality": nationality,
-        "passport_number": passport_number,
-        "dob": dob,
-        "sex": sex,
-        "expiry": expiry,
-        "issuing_country": issuing_country
+        "surname": data.get("surname", "").strip(),
+        "given_names": data.get("names", "").strip(),
+        "nationality": data.get("nationality", "").strip(),
+        "passport_number": data.get("number", "").strip(),
+        "dob": data.get("date_of_birth", "").strip(),
+        "sex": data.get("sex", "").strip(),
+        "expiry": data.get("expiration_date", "").strip(),
+        "issuing_country": data.get("country", "").strip()
     }, None
 
 # --- Process images ---
@@ -121,7 +95,6 @@ if image_list:
 
         st.divider()
 
-        # Generate Amadeus DOCS command
         airline_code = "YY"
         docs_command = (
             f"SR DOCS {airline_code} HK1 P/"
@@ -132,4 +105,4 @@ if image_list:
         st.text_area("Amadeus DOCS Command:", docs_command, height=80)
         st.caption("✈️ Copy and paste this directly into Amadeus PNR.")
 else:
-    st.info("👉 Upload an image/PDF or paste a screenshot to start.")
+    st.info("👉 Upload an image/PDF or drag & drop a screenshot to start.")
