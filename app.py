@@ -1,37 +1,50 @@
 import streamlit as st
 from PIL import Image
-from pdf2image import convert_from_bytes
-from mrz.reader import read_mrz
 import pytesseract
+from mrz.base import MRZ
+from mrz.checker.td3 import TD3CodeChecker
+import re
 import io
 
-st.set_page_config(page_title="MRZ Reader", layout="centered")
-st.title("MRZ Reader App")
-st.write("Upload an image or PDF containing a machine-readable zone (MRZ).")
+st.title("MRZ Reader")
 
-# File uploader
-uploaded_file = st.file_uploader("Choose an image or PDF", type=["png", "jpg", "jpeg", "pdf"])
+st.write("Upload an image of a passport or ID with MRZ lines")
 
-def process_image(image):
-    """Process a PIL image and extract MRZ."""
-    st.image(image, caption="Uploaded Image", use_column_width=True)
-    text = pytesseract.image_to_string(image)
-    mrz_result = read_mrz(text)
-    if mrz_result.valid:
-        st.success("MRZ found!")
-        st.json(mrz_result.to_dict())
-    else:
-        st.warning("No valid MRZ detected. Try a clearer image.")
+# Upload image
+uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png", "pdf"])
 
-if uploaded_file:
-    if uploaded_file.type == "application/pdf":
-        # Convert PDF pages to images
-        pages = convert_from_bytes(uploaded_file.read())
-        st.write(f"{len(pages)} page(s) detected in PDF.")
-        for i, page in enumerate(pages):
-            st.subheader(f"Page {i + 1}")
-            process_image(page)
-    else:
-        # Process image file
-        image = Image.open(uploaded_file)
-        process_image(image)
+if uploaded_file is not None:
+    try:
+        # Handle PDF input
+        if uploaded_file.type == "application/pdf":
+            from pdf2image import convert_from_bytes
+            images = convert_from_bytes(uploaded_file.read())
+            image = images[0]  # Only process first page
+        else:
+            image = Image.open(uploaded_file)
+
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+
+        # OCR to extract text
+        mrz_text = pytesseract.image_to_string(image)
+        st.text_area("Raw OCR Output", mrz_text, height=150)
+
+        # Filter MRZ-like lines (letters, numbers, <)
+        lines = [line for line in mrz_text.split("\n") if re.match(r'^[A-Z0-9<]{10,44}$', line)]
+        if len(lines) < 2:
+            st.warning("Could not detect MRZ lines. Make sure the image is clear and MRZ is visible.")
+        else:
+            mrz_code = "\n".join(lines[-2:])  # Usually the last 2 lines
+            st.text_area("Detected MRZ", mrz_code, height=100)
+
+            # Parse MRZ using mrz library
+            try:
+                mrz_obj = MRZ(mrz_code)
+                st.write("Parsed MRZ Data:")
+                for k, v in mrz_obj.to_dict().items():
+                    st.write(f"**{k}**: {v}")
+            except Exception as e:
+                st.error(f"Error parsing MRZ: {e}")
+
+    except Exception as e:
+        st.error(f"Error processing file: {e}")
