@@ -3,10 +3,10 @@ from PIL import Image
 from pdf2image import convert_from_bytes
 from passporteye import read_mrz
 
-# Convert PDF to image (first page)
+# Convert PDF bytes to image (first page)
 def pdf_to_image(file_bytes):
     pages = convert_from_bytes(file_bytes)
-    return pages[0]  # usually the passport info page
+    return pages[0]
 
 # Extract MRZ information
 def extract_mrz(image):
@@ -15,12 +15,11 @@ def extract_mrz(image):
         return None
     return mrz.to_dict()
 
-# OCR fallback to extract text from image
+# OCR fallback to extract text
 def extract_text(image):
-    text = pytesseract.image_to_string(image)
-    return text
+    return pytesseract.image_to_string(image)
 
-# Generate Amadeus DOCS code using "YY" instead of airline code
+# Generate Amadeus DOCS code using "YY"
 def generate_docs_code(last_name, first_name, doc_number):
     last_name = last_name.replace(" ", "").upper()
     first_name = first_name.replace(" ", "").upper()
