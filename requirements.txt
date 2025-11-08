@@ -1,5 +1,5 @@
 streamlit==1.51.0
-pytesseract
-Pillow
-pdf2image
-mrz
+passporteye==2.2.2
+Pillow==10.4.0
+opencv-python-headless==4.10.0.84
+pytesseract==0.3.13
