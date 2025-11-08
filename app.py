@@ -9,7 +9,7 @@ st.title("Passport MRZ → Amadeus DOCS Generator")
 
 st.markdown(
     "📸 **Upload or paste (Ctrl + V)** your passport image below. "
-    "The tool will extract the MRZ details and build the Amadeus DOCS command."
+    "The tool will extract MRZ details and build the **Amadeus DOCS** command automatically."
 )
 
 # --- Import the paste component (install with `pip install streamlit-paste`)
@@ -39,7 +39,6 @@ def format_date(date_str):
         return ""
 
 if image_data:
-    # Save temp image
     with open("temp.jpg", "wb") as f:
         f.write(image_data)
 
@@ -73,10 +72,20 @@ if image_data:
 
         st.divider()
 
-        airline_code = st.text_input("Enter Airline Code (e.g. TK, EK, QR):").upper().strip()
-        if airline_code:
-            docs_command = (
-    f"SR DOCS {airline_code} HK1 P/{nationality}/{passport_number}/"
-    f"{issuing_country}/{format_date(dob)}/{sex}/"
-    f"{format_date(expiry)}/{surname}/{given_names.replace(' ', '')}"
-)
+        # Default airline code as "YY"
+        airline_code = "YY"
+
+        # Generate the Amadeus DOCS command
+        docs_command = (
+            f"SR DOCS {airline_code} HK1 P/"
+            f"{nationality}/{passport_number}/{issuing_country}/"
+            f"{format_date(dob)}/{sex}/{format_date(expiry)}/"
+            f"{surname}/{given_names.replace(' ', '')}"
+        )
+
+        st.text_area("Amadeus DOCS Command:", docs_command, height=80)
+        st.caption("✈️ Copy and paste this directly into Amadeus PNR.")
+    else:
+        st.error("❌ Could not read MRZ. Try a clearer passport image.")
+else:
+    st.info("👉 Paste (Ctrl + V) or upload a passport image to start.")
