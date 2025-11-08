@@ -4,4 +4,3 @@ Pillow
 pdf2image
 opencv-python-headless
 passporteye
-streamlit-paste
