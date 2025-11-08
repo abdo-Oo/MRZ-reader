@@ -83,11 +83,12 @@ if image_data:
 
     # Filter lines that look like MRZ (two lines of ~44 characters)
     mrz_lines = [line for line in mrz_lines if len(line) >= 30]
+
     if len(mrz_lines) >= 2:
         mrz_lines = mrz_lines[-2:]  # take last two lines as MRZ
         data = parse_mrz(mrz_lines)
 
-             if data:
+        if data:
             surname = data.get('surname', '').strip()
             given_names = data.get('names', '').strip()
             nationality = data.get('nationality', '').strip()
