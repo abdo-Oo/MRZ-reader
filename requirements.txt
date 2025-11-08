@@ -1,6 +1,5 @@
 streamlit==1.51.0
 pytesseract
-pdf2image
 Pillow
-python-mrz
-opencv-python-headless
+pdf2image
+mrz
