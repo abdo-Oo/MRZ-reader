@@ -64,6 +64,10 @@ def parse_mrz(mrz_lines):
 
     line1, line2 = mrz_lines
 
+    # Pad lines with '<' if too short
+    line1 = line1.ljust(44, '<')
+    line2 = line2.ljust(44, '<')
+
     # Example parsing for TD3 passports (most common)
     passport_type = line1[0]
     issuing_country = line1[2:5]
@@ -87,53 +91,3 @@ def parse_mrz(mrz_lines):
         "expiration_date": expiry,
         "country": issuing_country
     }
-
-
-if image_data:
-    with open("temp.jpg", "wb") as f:
-        f.write(image_data)
-
-    mrz_lines = extract_mrz_text("temp.jpg")
-    data = parse_mrz(mrz_lines)
-
-    if data:
-        surname = data.get('surname', '').strip()
-        given_names = data.get('names', '').strip()
-        nationality = data.get('nationality', '').strip()
-        passport_number = data.get('number', '').strip()
-        dob = data.get('date_of_birth', '').strip()
-        sex = data.get('sex', '').strip()
-        expiry = data.get('expiration_date', '').strip()
-        issuing_country = data.get('country', '').strip()
-
-        st.success("✅ MRZ data extracted successfully!")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write("**Surname:**", surname)
-            st.write("**Given Names:**", given_names)
-            st.write("**Gender:**", sex)
-            st.write("**Date of Birth:**", format_date(dob))
-        with col2:
-            st.write("**Nationality:**", nationality)
-            st.write("**Passport #:**", passport_number)
-            st.write("**Expiry:**", format_date(expiry))
-            st.write("**Issuing Country:**", issuing_country)
-
-        st.divider()
-
-        airline_code = "YY"  # Default airline code
-
-        docs_command = (
-            f"SR DOCS {airline_code} HK1 P/"
-            f"{nationality}/{passport_number}/{issuing_country}/"
-            f"{format_date(dob)}/{sex}/{format_date(expiry)}/"
-            f"{surname}/{given_names.replace(' ', '')}"
-        )
-
-        st.text_area("Amadeus DOCS Command:", docs_command, height=80)
-        st.caption("✈️ Copy and paste this directly into Amadeus PNR.")
-    else:
-        st.error("❌ Could not read MRZ. Try a clearer passport image.")
-else:
-    st.info("👉 Paste (Ctrl + V) or upload a passport image to start.")
