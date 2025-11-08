@@ -4,36 +4,15 @@ from datetime import datetime
 from PIL import Image
 import io
 
-# --- Page settings ---
-st.set_page_config(
-    page_title="Passport MRZ → Amadeus DOCS Generator",
-    page_icon="✈️",
-    layout="centered"
-)
-
-# --- Custom header with company logo ---
-col1, col2 = st.columns([1, 4])
-with col1:
-    st.image("logo.png", width=100)
-with col2:
-    st.markdown(
-        """
-        <h1 style='margin-bottom:0;'>🌍 CompanyName</h1>
-        <p style='font-size:18px; margin-top:0; color:#555;'>
-        Passport MRZ → Amadeus DOCS Generator
-        </p>
-        """,
-        unsafe_allow_html=True
-    )
-
-st.markdown("---")
+st.set_page_config(page_title="Passport MRZ → Amadeus DOCS Generator")
+st.title("Passport MRZ → Amadeus DOCS Generator")
 
 st.markdown(
     "📸 **Upload or paste (Ctrl + V)** your passport image below. "
-    "The system will extract MRZ details and automatically generate the **Amadeus DOCS** command."
+    "The tool will extract MRZ details and build the **Amadeus DOCS** command automatically."
 )
 
-# --- Paste or upload section ---
+# --- Import the paste component (install with `pip install streamlit-paste`)
 try:
     from streamlit_paste import paste_image
     pasted_image = paste_image()
@@ -47,18 +26,18 @@ image_data = None
 if uploaded_file:
     image_data = uploaded_file.read()
 elif pasted_image is not None:
+    # pasted_image returns a PIL Image
     buf = io.BytesIO()
     pasted_image.save(buf, format="JPEG")
     image_data = buf.getvalue()
 
-# --- Utility functions ---
 def format_date(date_str):
+    """Convert YYMMDD to DDMMMYY (Amadeus style)."""
     try:
         return datetime.strptime(date_str, "%y%m%d").strftime("%d%b%y").upper()
     except Exception:
         return ""
 
-# --- MRZ Extraction & Command Generation ---
 if image_data:
     with open("temp.jpg", "wb") as f:
         f.write(image_data)
@@ -93,7 +72,10 @@ if image_data:
 
         st.divider()
 
+        # Default airline code as "YY"
         airline_code = "YY"
+
+        # Generate the Amadeus DOCS command
         docs_command = (
             f"SR DOCS {airline_code} HK1 P/"
             f"{nationality}/{passport_number}/{issuing_country}/"
@@ -102,7 +84,7 @@ if image_data:
         )
 
         st.text_area("Amadeus DOCS Command:", docs_command, height=80)
-        st.caption("✈️ Copy this into the PNR in Amadeus.")
+        st.caption("✈️ Copy and paste this directly into Amadeus PNR.")
     else:
         st.error("❌ Could not read MRZ. Try a clearer passport image.")
 else:
