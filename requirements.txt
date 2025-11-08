@@ -3,6 +3,3 @@ passporteye
 opencv-python-headless
 pytesseract
 streamlit-paste
-pdf2image
-poppler-utils
-Pillow
