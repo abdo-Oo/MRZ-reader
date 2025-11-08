@@ -1,8 +1,9 @@
 import streamlit as st
-from passporteye import read_mrz
-from datetime import datetime
 from PIL import Image
+import pytesseract
+from datetime import datetime
 import io
+import re
 
 st.set_page_config(page_title="Passport MRZ → Amadeus DOCS Generator")
 st.title("Passport MRZ → Amadeus DOCS Generator")
@@ -31,6 +32,7 @@ elif pasted_image is not None:
     pasted_image.save(buf, format="JPEG")
     image_data = buf.getvalue()
 
+
 def format_date(date_str):
     """Convert YYMMDD to DDMMMYY (Amadeus style)."""
     try:
@@ -38,15 +40,63 @@ def format_date(date_str):
     except Exception:
         return ""
 
+
+def extract_mrz_text(image_path):
+    """Use pytesseract to read MRZ lines from image."""
+    img = Image.open(image_path)
+    # Convert to grayscale for better OCR
+    img = img.convert("L")
+    text = pytesseract.image_to_string(img)
+    
+    # Keep only MRZ characters (A-Z, 0-9, <)
+    mrz_lines = [line.strip() for line in text.splitlines() if re.match(r'^[A-Z0-9<]+$', line.replace(" ", ""))]
+    
+    # Usually MRZ is 2 or 3 lines
+    if len(mrz_lines) >= 2:
+        return mrz_lines[-2:]  # take last 2 lines
+    return None
+
+
+def parse_mrz(mrz_lines):
+    """Manually parse MRZ lines into passport fields."""
+    if not mrz_lines or len(mrz_lines) < 2:
+        return None
+
+    line1, line2 = mrz_lines
+
+    # Example parsing for TD3 passports (most common)
+    passport_type = line1[0]
+    issuing_country = line1[2:5]
+    names = line1[5:].replace("<", " ").strip().split("  ")
+    surname = names[0]
+    given_names = " ".join(names[1:])
+
+    passport_number = line2[0:9].replace("<", "")
+    nationality = line2[10:13]
+    dob = line2[13:19]
+    sex = line2[20]
+    expiry = line2[21:27]
+
+    return {
+        "surname": surname,
+        "names": given_names,
+        "nationality": nationality,
+        "number": passport_number,
+        "date_of_birth": dob,
+        "sex": sex,
+        "expiration_date": expiry,
+        "country": issuing_country
+    }
+
+
 if image_data:
     with open("temp.jpg", "wb") as f:
         f.write(image_data)
 
-    mrz = read_mrz("temp.jpg")
+    mrz_lines = extract_mrz_text("temp.jpg")
+    data = parse_mrz(mrz_lines)
 
-    if mrz:
-        data = mrz.to_dict()
-
+    if data:
         surname = data.get('surname', '').strip()
         given_names = data.get('names', '').strip()
         nationality = data.get('nationality', '').strip()
@@ -72,10 +122,8 @@ if image_data:
 
         st.divider()
 
-        # Default airline code as "YY"
-        airline_code = "YY"
+        airline_code = "YY"  # Default airline code
 
-        # Generate the Amadeus DOCS command
         docs_command = (
             f"SR DOCS {airline_code} HK1 P/"
             f"{nationality}/{passport_number}/{issuing_country}/"
