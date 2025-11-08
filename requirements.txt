@@ -1,4 +1,5 @@
 streamlit
-pillow
-mrz
+passporteye
+opencv-python-headless
+pytesseract
 streamlit-paste
