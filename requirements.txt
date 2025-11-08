@@ -1,3 +1,4 @@
-opencv-python
-pytesseract
+streamlit
 passporteye
+opencv-python-headless
+pytesseract
