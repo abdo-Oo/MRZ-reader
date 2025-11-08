@@ -1,6 +1,7 @@
 streamlit==1.51.0
-pytesseract
-Pillow
+pillow
+passporteye
+numpy
 pdf2image
 opencv-python-headless
-passporteye
+pytesseract
