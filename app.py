@@ -3,19 +3,15 @@ from passporteye import read_mrz
 from datetime import datetime
 from PIL import Image
 import io
-import tempfile
 
-# For PDF conversion
-from pdf2image import convert_from_bytes
-
-# --- Page Settings ---
+# --- Page settings ---
 st.set_page_config(
     page_title="Passport MRZ → Amadeus DOCS Generator",
     page_icon="✈️",
     layout="centered"
 )
 
-# --- Branding Header ---
+# --- Custom header with company logo ---
 col1, col2 = st.columns([1, 4])
 with col1:
     st.image("logo.png", width=100)
@@ -33,8 +29,8 @@ with col2:
 st.markdown("---")
 
 st.markdown(
-    "📸 **Upload or paste (Ctrl + V)** your passport image or PDF below. "
-    "The tool extracts MRZ details and generates the **Amadeus DOCS** command automatically."
+    "📸 **Upload or paste (Ctrl + V)** your passport image below. "
+    "The system will extract MRZ details and automatically generate the **Amadeus DOCS** command."
 )
 
 # --- Paste or upload section ---
@@ -44,44 +40,30 @@ try:
 except Exception:
     pasted_image = None
 
-uploaded_file = st.file_uploader("Upload passport image or PDF", type=["jpg", "jpeg", "png", "pdf"])
+uploaded_file = st.file_uploader("Upload a passport image", type=["jpg", "jpeg", "png"])
 
-# --- Handle uploaded or pasted file ---
+# Accept either upload or pasted image
 image_data = None
-
 if uploaded_file:
-    if uploaded_file.type == "application/pdf":
-        # Convert PDF to image
-        pdf_bytes = uploaded_file.read()
-        images = convert_from_bytes(pdf_bytes)
-        # Use the first page of the PDF
-        if images:
-            buf = io.BytesIO()
-            images[0].save(buf, format="JPEG")
-            image_data = buf.getvalue()
-    else:
-        image_data = uploaded_file.read()
-
+    image_data = uploaded_file.read()
 elif pasted_image is not None:
     buf = io.BytesIO()
     pasted_image.save(buf, format="JPEG")
     image_data = buf.getvalue()
 
-# --- Helper function ---
+# --- Utility functions ---
 def format_date(date_str):
     try:
         return datetime.strptime(date_str, "%y%m%d").strftime("%d%b%y").upper()
     except Exception:
         return ""
 
-# --- MRZ Extraction ---
+# --- MRZ Extraction & Command Generation ---
 if image_data:
-    # Save temporary image
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
-        temp_file.write(image_data)
-        temp_file_path = temp_file.name
+    with open("temp.jpg", "wb") as f:
+        f.write(image_data)
 
-    mrz = read_mrz(temp_file_path)
+    mrz = read_mrz("temp.jpg")
 
     if mrz:
         data = mrz.to_dict()
@@ -111,7 +93,6 @@ if image_data:
 
         st.divider()
 
-        # Use YY as default airline code
         airline_code = "YY"
         docs_command = (
             f"SR DOCS {airline_code} HK1 P/"
@@ -121,8 +102,8 @@ if image_data:
         )
 
         st.text_area("Amadeus DOCS Command:", docs_command, height=80)
-        st.caption("✈️ Copy and paste this directly into Amadeus PNR.")
+        st.caption("✈️ Copy this into the PNR in Amadeus.")
     else:
-        st.error("❌ Could not read MRZ. Try a clearer passport image or PDF.")
+        st.error("❌ Could not read MRZ. Try a clearer passport image.")
 else:
-    st.info("👉 Paste (Ctrl + V) or upload a passport image or PDF to start.")
+    st.info("👉 Paste (Ctrl + V) or upload a passport image to start.")
