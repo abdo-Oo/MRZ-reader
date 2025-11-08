@@ -3,46 +3,72 @@ from passporteye import read_mrz
 from datetime import datetime
 from PIL import Image
 import io
+import tempfile
 
-st.set_page_config(page_title="Passport MRZ → Amadeus DOCS Generator")
-st.title("Passport MRZ → Amadeus DOCS Generator")
-
-st.markdown(
-    "📸 **Upload or paste (Ctrl + V)** your passport image below. "
-    "The tool will extract MRZ details and build the **Amadeus DOCS** command automatically."
-)
-
-# --- Import the paste component (install with `pip install streamlit-paste`)
+# Optional: Paste image support
 try:
     from streamlit_paste import paste_image
     pasted_image = paste_image()
 except Exception:
     pasted_image = None
 
-uploaded_file = st.file_uploader("Upload a passport image", type=["jpg", "jpeg", "png"])
+# --- Page Settings ---
+st.set_page_config(
+    page_title="Passport MRZ → Amadeus DOCS Generator",
+    page_icon="✈️",
+    layout="centered"
+)
 
-# Accept either upload or pasted image
+# --- Branding Header ---
+col1, col2 = st.columns([1, 4])
+with col1:
+    st.image("logo.png", width=100)
+with col2:
+    st.markdown(
+        """
+        <h1 style='margin-bottom:0;'>🌍 CompanyName</h1>
+        <p style='font-size:18px; margin-top:0; color:#555;'>
+        Passport MRZ → Amadeus DOCS Generator
+        </p>
+        """,
+        unsafe_allow_html=True
+    )
+
+st.markdown("---")
+
+st.markdown(
+    "📸 **Upload or paste (Ctrl + V)** your passport image below. "
+    "The tool extracts MRZ details and generates the **Amadeus DOCS** command automatically."
+)
+
+# --- Upload image ---
+uploaded_file = st.file_uploader("Upload passport image", type=["jpg", "jpeg", "png"])
+
+# --- Handle image from upload or paste ---
 image_data = None
+
 if uploaded_file:
     image_data = uploaded_file.read()
 elif pasted_image is not None:
-    # pasted_image returns a PIL Image
     buf = io.BytesIO()
     pasted_image.save(buf, format="JPEG")
     image_data = buf.getvalue()
 
+# --- Helper function ---
 def format_date(date_str):
-    """Convert YYMMDD to DDMMMYY (Amadeus style)."""
     try:
         return datetime.strptime(date_str, "%y%m%d").strftime("%d%b%y").upper()
     except Exception:
         return ""
 
+# --- MRZ Extraction ---
 if image_data:
-    with open("temp.jpg", "wb") as f:
-        f.write(image_data)
+    # Save temporary image
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+        temp_file.write(image_data)
+        temp_file_path = temp_file.name
 
-    mrz = read_mrz("temp.jpg")
+    mrz = read_mrz(temp_file_path)
 
     if mrz:
         data = mrz.to_dict()
@@ -72,10 +98,8 @@ if image_data:
 
         st.divider()
 
-        # Default airline code as "YY"
+        # Use YY as default airline code
         airline_code = "YY"
-
-        # Generate the Amadeus DOCS command
         docs_command = (
             f"SR DOCS {airline_code} HK1 P/"
             f"{nationality}/{passport_number}/{issuing_country}/"
