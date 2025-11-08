@@ -1,7 +1,7 @@
-from mrz.base.parser import MRZParser
 import pytesseract
 from PIL import Image
 from pdf2image import convert_from_bytes
+from mrz.checker.td3 import TD3CodeChecker  # correct class for passports (TD3 format)
 
 def pdf_to_image(file_bytes):
     pages = convert_from_bytes(file_bytes)
@@ -12,12 +12,12 @@ def extract_mrz_text(image):
     mrz_box = (0, int(height * 0.75), width, height)
     mrz_region = image.crop(mrz_box)
     mrz_text = pytesseract.image_to_string(mrz_region, config="--psm 6")
-    mrz_text = "".join(mrz_text.split())
+    mrz_text = "".join(mrz_text.split())  # remove spaces/newlines
     return mrz_text
 
 def parse_mrz_data(mrz_text):
     try:
-        mrz = MRZParser(mrz_text)
+        mrz = TD3CodeChecker(mrz_text)
         return {
             "first_name": mrz.names,
             "last_name": mrz.surname,
