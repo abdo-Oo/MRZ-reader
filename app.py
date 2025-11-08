@@ -1,10 +1,35 @@
 import streamlit as st
 from passporteye import read_mrz
 from datetime import datetime
+from PIL import Image
+import io
 
+st.set_page_config(page_title="Passport MRZ → Amadeus DOCS Generator")
 st.title("Passport MRZ → Amadeus DOCS Generator")
 
+st.markdown(
+    "📸 **Upload or paste (Ctrl + V)** your passport image below. "
+    "The tool will extract the MRZ details and build the Amadeus DOCS command."
+)
+
+# --- Import the paste component (install with `pip install streamlit-paste`)
+try:
+    from streamlit_paste import paste_image
+    pasted_image = paste_image()
+except Exception:
+    pasted_image = None
+
 uploaded_file = st.file_uploader("Upload a passport image", type=["jpg", "jpeg", "png"])
+
+# Accept either upload or pasted image
+image_data = None
+if uploaded_file:
+    image_data = uploaded_file.read()
+elif pasted_image is not None:
+    # pasted_image returns a PIL Image
+    buf = io.BytesIO()
+    pasted_image.save(buf, format="JPEG")
+    image_data = buf.getvalue()
 
 def format_date(date_str):
     """Convert YYMMDD to DDMMMYY (Amadeus style)."""
@@ -13,9 +38,10 @@ def format_date(date_str):
     except Exception:
         return ""
 
-if uploaded_file:
+if image_data:
+    # Save temp image
     with open("temp.jpg", "wb") as f:
-        f.write(uploaded_file.getbuffer())
+        f.write(image_data)
 
     mrz = read_mrz("temp.jpg")
 
@@ -50,11 +76,5 @@ if uploaded_file:
         airline_code = st.text_input("Enter Airline Code (e.g. TK, EK, QR):").upper().strip()
         if airline_code:
             docs_command = (
-                f"SR DOCS YY HK1 P/{nationality}/{passport_number}/"
-                f"{issuing_country}/{format_date(dob)}/{sex}/"
-                f"{format_date(expiry)}/{surname}/{given_names.replace(' ', '')}"
-            )
-            st.text_area("Amadeus DOCS Command:", docs_command, height=80)
-            st.caption("Copy and paste this directly into Amadeus PNR.")
-    else:
-        st.error("❌ Could not read MRZ. Try a clearer passport image.")
+                f"SR DOCS {airline_code} HK1 P/{nationality}/{passport_number}/"
+                f"{issuing_country}/{format_date(dob)}/{
