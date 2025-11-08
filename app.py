@@ -76,5 +76,7 @@ if image_data:
         airline_code = st.text_input("Enter Airline Code (e.g. TK, EK, QR):").upper().strip()
         if airline_code:
             docs_command = (
-                f"SR DOCS {airline_code} HK1 P/{nationality}/{passport_number}/"
-                f"{issuing_country}/{format_date(dob)}/{
+    f"SR DOCS {airline_code} HK1 P/{nationality}/{passport_number}/"
+    f"{issuing_country}/{format_date(dob)}/{sex}/"
+    f"{format_date(expiry)}/{surname}/{given_names.replace(' ', '')}"
+)
