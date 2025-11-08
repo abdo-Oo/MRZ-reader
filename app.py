@@ -2,61 +2,69 @@ import streamlit as st
 from passporteye import read_mrz
 from datetime import datetime
 from PIL import Image
+import numpy as np
 import io
-import os
+from pdf2image import convert_from_bytes
 
-# Optional: For PDF support
-try:
-    from pdf2image import convert_from_bytes
-except ImportError:
-    convert_from_bytes = None
+# -----------------------------
+# Streamlit page config
+# -----------------------------
+st.set_page_config(page_title="Passport MRZ → Amadeus DOCS Generator", layout="wide")
+st.title("📄 Passport MRZ → Amadeus DOCS Generator")
 
-# --- Streamlit page config ---
-st.set_page_config(page_title="TEZ Tours Passport MRZ Reader")
-st.title("🛫 TEZ Tours Passport MRZ Reader")
-
-st.markdown("""
-📸 Upload a passport image (JPG/PNG) or PDF, or drag & drop a screenshot.
-The app will extract MRZ details and validate them against the passport details.
-""")
-
-# --- Upload file ---
-uploaded_file = st.file_uploader(
-    "Upload a passport image or PDF (or paste a screenshot as file)", 
-    type=["jpg", "jpeg", "png", "pdf"]
+# Background image (TEZ Tours)
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-image: url("https://i.imgur.com/7uY1d0K.jpg"); /* Replace with your TEZ Tours background */
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
-image_list = []
+st.markdown(
+    "📸 **Upload, paste (Ctrl+V), or drag-and-drop** a passport image or PDF file. "
+    "The tool will extract MRZ details and generate the **Amadeus DOCS** command."
+)
 
-# Handle uploaded files
-if uploaded_file:
-    if uploaded_file.type == "application/pdf":
-        if convert_from_bytes is None:
-            st.error("PDF support requires pdf2image. Please install it.")
-        else:
-            try:
-                images = convert_from_bytes(uploaded_file.read())
-                image_list.extend(images)
-            except Exception as e:
-                st.error(f"Failed to read PDF: {e}")
-    else:
-        try:
-            img = Image.open(uploaded_file)
-            image_list.append(img)
-        except Exception as e:
-            st.error(f"Failed to read image: {e}")
+# -----------------------------
+# File uploader
+# -----------------------------
+uploaded_file = st.file_uploader("Upload passport image or PDF", type=["jpg", "jpeg", "png", "pdf"])
 
-# --- Helper functions ---
+# -----------------------------
+# Paste screenshot
+# -----------------------------
+try:
+    from streamlit.components.v1 import html
+
+    st.markdown("### 📌 Paste your screenshot (Ctrl+V)")
+    pasted_image = st.camera_input("Or capture a live passport image")  # Optional: can use camera_input
+except Exception:
+    pasted_image = None
+
+# -----------------------------
+# Helper functions
+# -----------------------------
 def format_date(date_str):
+    """Convert YYMMDD to DDMMMYY (Amadeus style)."""
     try:
         return datetime.strptime(date_str, "%y%m%d").strftime("%d%b%y").upper()
     except Exception:
         return ""
 
 def extract_mrz_and_validate(img: Image.Image):
-    mrz = read_mrz(img)
+    """Convert image to NumPy and read MRZ using PassportEye."""
+    img_np = np.array(img.convert('L'))  # Convert to grayscale
+    mrz = read_mrz(img_np)
     if not mrz:
         return None, "❌ MRZ not detected."
+    
     data = mrz.to_dict()
     return {
         "surname": data.get("surname", "").strip(),
@@ -69,18 +77,32 @@ def extract_mrz_and_validate(img: Image.Image):
         "issuing_country": data.get("country", "").strip()
     }, None
 
-# --- Process images ---
-if image_list:
-    for idx, img in enumerate(image_list):
-        st.image(img, caption=f"Uploaded Image {idx+1}", use_column_width=True)
+# -----------------------------
+# Load image from uploaded file or PDF
+# -----------------------------
+image_data = None
+if uploaded_file:
+    if uploaded_file.type == "application/pdf":
+        pages = convert_from_bytes(uploaded_file.read(), dpi=300)
+        image_data = pages[0]  # Take first page only
+    else:
+        image_data = Image.open(uploaded_file)
 
-        data, error = extract_mrz_and_validate(img)
-        if error:
-            st.error(error)
-            continue
+elif pasted_image:
+    image_data = pasted_image
 
+# -----------------------------
+# Process image
+# -----------------------------
+if image_data:
+    st.image(image_data, caption="Uploaded Passport", use_column_width=True)
+    
+    data, error = extract_mrz_and_validate(image_data)
+    
+    if error:
+        st.error(error)
+    else:
         st.success("✅ MRZ data extracted successfully!")
-
         col1, col2 = st.columns(2)
         with col1:
             st.write("**Surname:**", data["surname"])
@@ -92,9 +114,10 @@ if image_list:
             st.write("**Passport #:**", data["passport_number"])
             st.write("**Expiry:**", format_date(data["expiry"]))
             st.write("**Issuing Country:**", data["issuing_country"])
-
+        
         st.divider()
-
+        
+        # Default airline code as "YY"
         airline_code = "YY"
         docs_command = (
             f"SR DOCS {airline_code} HK1 P/"
@@ -102,7 +125,9 @@ if image_list:
             f"{format_date(data['dob'])}/{data['sex']}/{format_date(data['expiry'])}/"
             f"{data['surname']}/{data['given_names'].replace(' ', '')}"
         )
+        
         st.text_area("Amadeus DOCS Command:", docs_command, height=80)
         st.caption("✈️ Copy and paste this directly into Amadeus PNR.")
+
 else:
-    st.info("👉 Upload an image/PDF or drag & drop a screenshot to start.")
+    st.info("👉 Upload a passport image or PDF, or paste a screenshot to start.")
