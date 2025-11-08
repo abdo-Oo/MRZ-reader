@@ -25,7 +25,9 @@ if uploaded_file:
         st.write(f"**Last Name:** {mrz_data.get('surname')}")
         st.write(f"**Document Number:** {mrz_data.get('number')}")
 
-        docs_code = generate_docs_code(mrz_data.get('surname'), mrz_data.get('names'), mrz_data.get("number"))
+        docs_code = generate_docs_code(
+            mrz_data.get('surname'), mrz_data.get('names'), mrz_data.get("number")
+        )
         st.subheader("📝 Generated Amadeus DOCS Code")
         st.code(docs_code)
     else:
