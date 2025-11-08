@@ -1,6 +1,6 @@
 import streamlit as st
 from PIL import Image
-from utils import pdf_to_image, extract_mrz, extract_text, generate_docs_code
+from utils import pdf_to_image, extract_mrz_text, parse_mrz_data, generate_docs_code
 
 st.set_page_config(page_title="Passport MRZ & DOCS Extractor", layout="centered")
 st.title("🛂 Passport MRZ & DOCS Code Extractor")
@@ -16,21 +16,22 @@ if uploaded_file:
 
     st.image(image, caption="Uploaded Passport Page", use_column_width=True)
 
-    # Extract MRZ
-    mrz_data = extract_mrz(image)
+    # Extract MRZ text
+    mrz_text = extract_mrz_text(image)
+    mrz_data = parse_mrz_data(mrz_text)
 
     if mrz_data:
         st.subheader("✅ MRZ Data Extracted")
-        st.write(f"**First Name:** {mrz_data.get('names')}")
-        st.write(f"**Last Name:** {mrz_data.get('surname')}")
-        st.write(f"**Document Number:** {mrz_data.get('number')}")
+        st.write(f"**First Name:** {mrz_data.get('first_name')}")
+        st.write(f"**Last Name:** {mrz_data.get('last_name')}")
+        st.write(f"**Document Number:** {mrz_data.get('document_number')}")
 
         docs_code = generate_docs_code(
-            mrz_data.get('surname'), mrz_data.get('names'), mrz_data.get("number")
+            mrz_data.get('last_name'),
+            mrz_data.get('first_name'),
+            mrz_data.get("document_number")
         )
         st.subheader("📝 Generated Amadeus DOCS Code")
         st.code(docs_code)
     else:
-        st.warning("⚠ MRZ not detected. Using OCR fallback...")
-        text = extract_text(image)
-        st.text_area("Extracted Text (OCR)", text, height=250)
+        st.warning("⚠ MRZ not detected. Please ensure the bottom part of the passport is visible.")
