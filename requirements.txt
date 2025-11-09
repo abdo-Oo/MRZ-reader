@@ -1,7 +1,4 @@
 streamlit
-pillow
+passporteye
 pdf2image
-pytesseract
-mrz
-opencv-python-headless
-numpy
+pillow
