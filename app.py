@@ -5,8 +5,14 @@ st.title("Passport MRZ Reader & Amadeus DOCS Generator")
 
 uploaded_file = st.file_uploader("Upload Passport (Image or PDF)", type=["jpg", "jpeg", "png", "pdf"])
 
+st.markdown("### 📄 Upload Passport Image or PDF")
+
+uploaded_file = st.file_uploader(
+    "Choose a passport image or PDF file",
+    type=["jpg", "jpeg", "png", "pdf"],
+)
+
 if uploaded_file:
-    # Save uploaded file
     file_path = f"temp_{uploaded_file.name}"
     with open(file_path, "wb") as f:
         f.write(uploaded_file.read())
@@ -20,13 +26,13 @@ if uploaded_file:
 
     st.image(image_path, caption="Uploaded Passport", use_container_width=True)
 
-    # Extract MRZ
-    st.info("Extracting MRZ data...")
-    data = extract_mrz_data(image_path)
+    with st.spinner("Extracting MRZ data..."):
+        data = extract_mrz_data(image_path)
 
     if data:
         st.success("✅ MRZ Detected and Parsed Successfully!")
-        st.write(data)
+        with st.expander("View Extracted Details"):
+            st.json(data)
 
         docs_code = generate_docs_code(data)
         st.text_area("Amadeus DOCS Line", docs_code, height=100)
