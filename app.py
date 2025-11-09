@@ -1,37 +1,34 @@
 import streamlit as st
-from PIL import Image
-from utils import pdf_to_image, extract_mrz_text, parse_mrz_data, generate_docs_code
+from utils import pdf_to_image, extract_mrz_data, generate_docs_code
 
-st.set_page_config(page_title="Passport MRZ & DOCS Extractor", layout="centered")
-st.title("🛂 Passport MRZ & DOCS Code Extractor")
+st.title("Passport MRZ Reader & Amadeus DOCS Generator")
 
-uploaded_file = st.file_uploader("Upload a passport image or PDF", type=["png", "jpg", "jpeg", "pdf"])
+uploaded_file = st.file_uploader("Upload Passport (Image or PDF)", type=["jpg", "jpeg", "png", "pdf"])
 
 if uploaded_file:
-    # Convert PDF to image if needed
+    # Save uploaded file
+    file_path = f"temp_{uploaded_file.name}"
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.read())
+
+    # Convert PDF → image if needed
     if uploaded_file.type == "application/pdf":
-        image = pdf_to_image(uploaded_file.read())
+        st.info("Converting PDF to image...")
+        image_path = pdf_to_image(file_path)
     else:
-        image = Image.open(uploaded_file)
+        image_path = file_path
 
-    st.image(image, caption="Uploaded Passport Page", use_column_width=True)
+    st.image(image_path, caption="Uploaded Passport", use_container_width=True)
 
-    # Extract MRZ text
-    mrz_text = extract_mrz_text(image)
-    mrz_data = parse_mrz_data(mrz_text)
+    # Extract MRZ
+    st.info("Extracting MRZ data...")
+    data = extract_mrz_data(image_path)
 
-    if mrz_data:
-        st.subheader("✅ MRZ Data Extracted")
-        st.write(f"**First Name:** {mrz_data.get('first_name')}")
-        st.write(f"**Last Name:** {mrz_data.get('last_name')}")
-        st.write(f"**Document Number:** {mrz_data.get('document_number')}")
+    if data:
+        st.success("✅ MRZ Detected and Parsed Successfully!")
+        st.write(data)
 
-        docs_code = generate_docs_code(
-            mrz_data.get('last_name'),
-            mrz_data.get('first_name'),
-            mrz_data.get("document_number")
-        )
-        st.subheader("📝 Generated Amadeus DOCS Code")
-        st.code(docs_code)
+        docs_code = generate_docs_code(data)
+        st.text_area("Amadeus DOCS Line", docs_code, height=100)
     else:
-        st.warning("⚠ MRZ not detected. Please ensure the bottom part of the passport is visible.")
+        st.error("⚠ MRZ not detected. Please upload a clearer image showing both MRZ lines.")
