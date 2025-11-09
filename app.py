@@ -1,95 +1,68 @@
 import streamlit as st
-from utils import pdf_to_image, extract_mrz_data, generate_docs_code
+from utils import extract_mrz_text, parse_mrz_data, generate_docs_code
+from pdf2image import convert_from_bytes
+from PIL import Image
+import io
 
-# ======================
-# Page Setup
-# ======================
+# ----- Streamlit page setup -----
 st.set_page_config(
     page_title="Passport MRZ Reader",
-    page_icon="",
-    layout="centered",
+    page_icon="🛂",
+    layout="centered"
 )
 
-# ======================
-# Logo and Header
-# ======================
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    st.image("logo.png", use_container_width=True)
-
-st.markdown(
-    "<h1 style='text-align:center; color:#003366;'>Passport MRZ Reader & Amadeus DOCS Generator</h1>",
-    unsafe_allow_html=True,
-)
-
-# ======================
-# Custom Styling
-# ======================
+# ----- App header -----
 st.markdown(
     """
-    <style>
-    [data-testid="stAppViewContainer"] {
-        background-image: url("https://images.unsplash.com/photo-1502920917128-1aa500764b43");
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-    }
-
-    [data-testid="stAppViewContainer"] > div {
-        background-color: rgba(255, 255, 255, 0.88);
-        padding: 2rem;
-        border-radius: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-
-    div.stButton > button {
-        background-color: #004080;
-        color: white;
-        border-radius: 8px;
-        height: 3em;
-        font-weight: 600;
-    }
-    div.stButton > button:hover {
-        background-color: #0055aa;
-        color: #f0f0f0;
-    }
-    </style>
+    <h2 style="text-align:center; color:#004aad;">🛂 Passport MRZ Reader</h2>
+    <p style="text-align:center; color:gray;">
+        Upload a passport image or PDF — we’ll extract the MRZ details and generate an Amadeus DOCS command.
+    </p>
+    <hr>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
 
-# ======================
-# File Upload Section
-# ======================
-st.markdown("### 📄 Upload Passport (Image or PDF)")
-uploaded_file = st.file_uploader("Choose file", type=["jpg", "jpeg", "png", "pdf"])
+# ----- File uploader -----
+uploaded_file = st.file_uploader(
+    "Upload Passport Image or PDF",
+    type=["jpg", "jpeg", "png", "pdf"]
+)
 
 if uploaded_file:
-    file_path = f"temp_{uploaded_file.name}"
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.read())
+    try:
+        # Convert PDF to image if needed
+        if uploaded_file.type == "application/pdf":
+            pages = convert_from_bytes(uploaded_file.read())
+            passport_image = pages[0]
+        else:
+            passport_image = Image.open(uploaded_file)
 
-    if uploaded_file.type == "application/pdf":
-        st.info("Converting PDF to image...")
-        image_path = pdf_to_image(file_path)
-    else:
-        image_path = file_path
+        st.image(passport_image, caption="Uploaded Passport", use_container_width=True)
 
-    st.image(image_path, caption="Uploaded Passport", use_container_width=True)
+        # Extract MRZ text
+        with st.spinner("Extracting MRZ data..."):
+            mrz_text = extract_mrz_text(passport_image)
 
-    with st.spinner("🔍 Extracting MRZ data..."):
-        data = extract_mrz_data(image_path)
+        if mrz_text:
+            parsed_data = parse_mrz_data(mrz_text)
+            if parsed_data:
+                st.success("✅ MRZ successfully detected!")
+                st.subheader("Extracted Passport Details")
+                st.write(parsed_data)
 
-    if data:
-        st.success("✅ MRZ Detected Successfully!")
-        with st.expander("View Extracted Passport Data"):
-            st.json(data)
+                # Generate Amadeus DOCS code
+                docs_code = generate_docs_code(parsed_data)
+                st.subheader("Generated Amadeus DOCS Command")
+                st.code(docs_code, language="text")
+                st.info("You can copy this directly into Amadeus without modification.")
+            else:
+                st.warning("⚠ Unable to parse MRZ details. Please try a clearer image.")
+        else:
+            st.warning("⚠ MRZ not detected. Ensure the lower MRZ section is visible and clear.")
 
-        docs_code = generate_docs_code(data)
+    except Exception as e:
+        st.error(f"An error occurred while processing: {str(e)}")
 
-        st.markdown("### ✈️ Copy & Paste into Amadeus:")
-        st.text_area("", docs_code, height=100)
-        st.caption("This DOCS command is fully formatted for Amadeus — no edits required.")
-
-    else:
-        st.error("⚠ MRZ not detected. Please upload a clearer image showing both MRZ lines.")
+else:
+    st.info("👆 Please upload a passport image or PDF file to begin.")
