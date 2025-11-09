@@ -1,55 +1,38 @@
-import os
-from pdf2image import convert_from_path
-from PIL import Image
-from passporteye import read_mrz
+from datetime import datetime
 
-
-def pdf_to_image(pdf_path):
-    """Convert first page of PDF to an image."""
-    images = convert_from_path(pdf_path, dpi=300)
-    if images:
-        img_path = "temp_passport.jpg"
-        images[0].save(img_path, "JPEG")
-        return img_path
-    return None
-
-
-def extract_mrz_data(image_path):
-    """Extract MRZ data from passport image using PassportEye."""
-    mrz = read_mrz(image_path, save_roi=False)
-    if mrz is None:
-        return None
-
-    data = mrz.to_dict()
-    first_name = data.get("names", "")
-    last_name = data.get("surname", "")
-    passport_no = data.get("number", "")
-    nationality = data.get("nationality", "")
-    birth_date = data.get("date_of_birth", "")
-    gender = data.get("sex", "")
-    expiry_date = data.get("expiration_date", "")
-
-    return {
-        "first_name": first_name,
-        "last_name": last_name,
-        "passport_number": passport_no,
-        "nationality": nationality,
-        "birth_date": birth_date,
-        "gender": gender,
-        "expiry_date": expiry_date,
-    }
+def format_date(date_str):
+    """Convert YYYY-MM-DD or YYMMDD or similar to DDMMMYY."""
+    if not date_str:
+        return ""
+    try:
+        # Try common formats from MRZ
+        for fmt in ("%y%m%d", "%Y-%m-%d", "%d%m%y", "%Y%m%d"):
+            try:
+                d = datetime.strptime(date_str, fmt)
+                return d.strftime("%d%b%y").upper()
+            except ValueError:
+                continue
+    except Exception:
+        pass
+    return date_str  # fallback (keep original if unknown)
 
 
 def generate_docs_code(data):
-    """Generate Amadeus DOCS line with YY airline code placeholder."""
+    """Generate a valid Amadeus DOCS command (copy-paste ready)."""
     if not data:
         return None
 
-    # Format: YY HK1-P/US/DOE/JOHN/M/01JAN90/US/12DEC30/XXXXXXXXX
-    return (
-        f"YY HK1-P/{data.get('nationality','')}/"
-        f"{data.get('last_name','')}/{data.get('first_name','')}/"
-        f"{data.get('gender','')}/{data.get('birth_date','')}/"
-        f"{data.get('nationality','')}/{data.get('expiry_date','')}/"
-        f"{data.get('passport_number','')}"
+    nationality = data.get("nationality", "").upper()
+    last_name = data.get("last_name", "").upper().replace(" ", "")
+    first_name = data.get("first_name", "").upper().replace(" ", "")
+    gender = data.get("gender", "U").upper()[0]  # Default 'U' if unknown
+    dob = format_date(data.get("birth_date", ""))
+    expiry = format_date(data.get("expiry_date", ""))
+    passport = data.get("passport_number", "").upper().replace(" ", "")
+
+    # Construct DOCS command
+    docs = (
+        f"DOCS YY HK1 P/{nationality}/{passport}/{nationality}/{expiry}/"
+        f"{gender}/{dob}/{last_name}/{first_name}"
     )
+    return docs
