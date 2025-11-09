@@ -1,75 +1,65 @@
-from datetime import datetime
-from pdf2image import convert_from_path
 from passporteye import read_mrz
+from pdf2image import convert_from_bytes
+from PIL import Image
+import io
 
+def extract_mrz_text(image):
+    """
+    Extracts MRZ text from a passport image using PassportEye.
+    Returns the raw MRZ string or None if not detected.
+    """
+    # Ensure image is in bytes for PassportEye
+    if isinstance(image, Image.Image):
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG")
+        img_bytes = buf.getvalue()
+    else:
+        img_bytes = image
 
-def pdf_to_image(pdf_path):
-    """Convert first page of PDF to image."""
-    images = convert_from_path(pdf_path, dpi=300)
-    if images:
-        img_path = "temp_passport.jpg"
-        images[0].save(img_path, "JPEG")
-        return img_path
-    return None
+    # Use PassportEye to read MRZ
+    mrz = read_mrz(img_bytes)
 
-
-def extract_mrz_data(image_path):
-    """Extract MRZ info from passport using PassportEye."""
-    mrz = read_mrz(image_path, save_roi=False)
-    if mrz is None:
+    if mrz:
+        return mrz
+    else:
         return None
 
-    data = mrz.to_dict()
-    first_name = data.get("names", "")
-    last_name = data.get("surname", "")
-    passport_no = data.get("number", "")
-    nationality = data.get("nationality", "")
-    birth_date = data.get("date_of_birth", "")
-    gender = data.get("sex", "")
-    expiry_date = data.get("expiration_date", "")
 
-    return {
-        "first_name": first_name,
-        "last_name": last_name,
-        "passport_number": passport_no,
-        "nationality": nationality,
-        "birth_date": birth_date,
-        "gender": gender,
-        "expiry_date": expiry_date,
+def parse_mrz_data(mrz):
+    """
+    Converts PassportEye MRZ result into a clean dictionary.
+    """
+    if not mrz:
+        return None
+
+    mrz_data = mrz.to_dict()
+    data = {
+        "First Name": mrz_data.get("names", ""),
+        "Last Name": mrz_data.get("surname", ""),
+        "Passport Number": mrz_data.get("number", ""),
+        "Nationality": mrz_data.get("nationality", ""),
+        "Date of Birth": mrz_data.get("date_of_birth", ""),
+        "Gender": mrz_data.get("sex", ""),
+        "Expiry Date": mrz_data.get("expiration_date", "")
     }
 
-
-def format_date(date_str):
-    """Convert MRZ-style dates into Amadeus DOCS format (DDMMMYY)."""
-    if not date_str:
-        return ""
-    try:
-        for fmt in ("%y%m%d", "%Y-%m-%d", "%d%m%y", "%Y%m%d"):
-            try:
-                d = datetime.strptime(date_str, fmt)
-                return d.strftime("%d%b%y").upper()
-            except ValueError:
-                continue
-    except Exception:
-        pass
-    return date_str
+    return data
 
 
 def generate_docs_code(data):
-    """Generate a fully Amadeus-compliant DOCS command."""
+    """
+    Generates an Amadeus DOCS command using YY instead of airline code.
+    Example: DOCS YY HK1-P/GBR/123456789/GBR/15JAN90/M/15JAN30/DOE/JOHN
+    """
     if not data:
-        return None
+        return "No MRZ data found."
 
-    nationality = data.get("nationality", "").upper()
-    last_name = data.get("last_name", "").upper().replace(" ", "")
-    first_name = data.get("first_name", "").upper().replace(" ", "")
-    gender = data.get("gender", "U").upper()[0]
-    dob = format_date(data.get("birth_date", ""))
-    expiry = format_date(data.get("expiry_date", ""))
-    passport = data.get("passport_number", "").upper().replace(" ", "")
-
-    docs = (
-        f"DOCS YY HK1 P/{nationality}/{passport}/{nationality}/{expiry}"
-        f"{gender}/{dob}/{last_name}/{first_name}"
+    docs_code = (
+        f"DOCS YY HK1-P/{data.get('Nationality','')}/"
+        f"{data.get('Passport Number','')}/{data.get('Nationality','')}/"
+        f"{data.get('Date of Birth','')}/{data.get('Gender','')}/"
+        f"{data.get('Expiry Date','')}/"
+        f"{data.get('Last Name','')}/{data.get('First Name','')}"
     )
-    return docs
+
+    return docs_code
