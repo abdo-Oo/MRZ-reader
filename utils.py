@@ -1,65 +1,80 @@
 from passporteye import read_mrz
+from PIL import Image, ExifTags
+import io, numpy as np
 from pdf2image import convert_from_bytes
-from PIL import Image
-import io
 
-def extract_mrz_text(image):
-    """
-    Extracts MRZ text from a passport image using PassportEye.
-    Returns the raw MRZ string or None if not detected.
-    """
-    # Ensure image is in bytes for PassportEye
-    if isinstance(image, Image.Image):
-        buf = io.BytesIO()
-        image.save(buf, format="JPEG")
-        img_bytes = buf.getvalue()
+def load_image(file):
+    """Load image or PDF, and auto-rotate if needed."""
+    if file.type == "application/pdf":
+        pages = convert_from_bytes(file.read())
+        image = pages[0]
     else:
-        img_bytes = image
+        image = Image.open(file)
+        # Handle EXIF rotation (for phone pictures)
+        try:
+            for orientation in ExifTags.TAGS.keys():
+                if ExifTags.TAGS[orientation] == 'Orientation':
+                    break
+            exif = dict(image._getexif().items())
+            if exif[orientation] == 3:
+                image = image.rotate(180, expand=True)
+            elif exif[orientation] == 6:
+                image = image.rotate(270, expand=True)
+            elif exif[orientation] == 8:
+                image = image.rotate(90, expand=True)
+        except Exception:
+            pass
+    return image
 
-    # Use PassportEye to read MRZ
+
+def extract_mrz_data(image):
+    """Extract MRZ data (try original + rotated if needed)."""
+    # Convert to bytes
+    buf = io.BytesIO()
+    image.save(buf, format="JPEG")
+    img_bytes = buf.getvalue()
+
+    # Try reading MRZ normally
     mrz = read_mrz(img_bytes)
+    if not mrz:
+        # Try rotated versions
+        for angle in [90, 180, 270]:
+            rotated = image.rotate(angle, expand=True)
+            buf = io.BytesIO()
+            rotated.save(buf, format="JPEG")
+            mrz = read_mrz(buf.getvalue())
+            if mrz:
+                break
 
-    if mrz:
-        return mrz
-    else:
-        return None
+    return mrz
 
 
-def parse_mrz_data(mrz):
-    """
-    Converts PassportEye MRZ result into a clean dictionary.
-    """
+def parse_mrz(mrz):
+    """Parse MRZ data into readable dict."""
     if not mrz:
         return None
-
-    mrz_data = mrz.to_dict()
-    data = {
-        "First Name": mrz_data.get("names", ""),
-        "Last Name": mrz_data.get("surname", ""),
-        "Passport Number": mrz_data.get("number", ""),
-        "Nationality": mrz_data.get("nationality", ""),
-        "Date of Birth": mrz_data.get("date_of_birth", ""),
-        "Gender": mrz_data.get("sex", ""),
-        "Expiry Date": mrz_data.get("expiration_date", "")
+    data = mrz.to_dict()
+    return {
+        "First Name": data.get("names", "").replace("<", " "),
+        "Last Name": data.get("surname", "").replace("<", " "),
+        "Passport Number": data.get("number", ""),
+        "Nationality": data.get("nationality", ""),
+        "Date of Birth": data.get("date_of_birth", ""),
+        "Gender": data.get("sex", ""),
+        "Expiry Date": data.get("expiration_date", "")
     }
 
-    return data
 
-
-def generate_docs_code(data):
-    """
-    Generates an Amadeus DOCS command using YY instead of airline code.
-    Example: DOCS YY HK1-P/GBR/123456789/GBR/15JAN90/M/15JAN30/DOE/JOHN
-    """
+def generate_srdocs(data):
+    """Generate Amadeus SRDOCS command."""
     if not data:
         return "No MRZ data found."
 
-    docs_code = (
-        f"DOCS YY HK1-P/{data.get('Nationality','')}/"
-        f"{data.get('Passport Number','')}/{data.get('Nationality','')}/"
-        f"{data.get('Date of Birth','')}/{data.get('Gender','')}/"
-        f"{data.get('Expiry Date','')}/"
-        f"{data.get('Last Name','')}/{data.get('First Name','')}"
+    docs = (
+        f"SRDOCS YY HK1-P/{data['Nationality']}/"
+        f"{data['Passport Number']}/{data['Nationality']}/"
+        f"{data['Date of Birth']}/{data['Gender']}/"
+        f"{data['Expiry Date']}/"
+        f"{data['Last Name'].strip()}/{data['First Name'].strip()}"
     )
-
-    return docs_code
+    return docs
