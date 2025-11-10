@@ -1,5 +1,6 @@
 streamlit==1.29.0
-passporteye==2.3.2
+passporteye==2.2.2
 pillow==10.3.0
 pdf2image==1.16.3
 numpy==1.26.4
+opencv-python-headless==4.9.0.80
