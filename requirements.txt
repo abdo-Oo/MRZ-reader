@@ -1,7 +1,6 @@
-fastapi==0.111.2
-uvicorn[standard]==0.23.2
-pillow==10.1.0
-opencv-python==4.8.0.76
-passporteye==1.4.3
-pdf2image==1.16.3
-python-multipart==0.0.6
+fastapi
+uvicorn[standard]
+passporteye
+pdf2image
+pillow
+opencv-python-headless
