@@ -1,80 +1,43 @@
-from passporteye import read_mrz
-from PIL import Image, ExifTags
-import io, numpy as np
-from pdf2image import convert_from_bytes
+import pytesseract
+import cv2
+from pdf2image import convert_from_path
+from PIL import Image
+import numpy as np
+
+def extract_mrz_from_image(image):
+    """
+    Extract MRZ lines using OCR + preprocessing
+    """
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Enhance MRZ region
+    gray = cv2.bilateralFilter(gray, 11, 17, 17)
+    _, thresh = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
+
+    # OCR
+    config = "--oem 1 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<"
+    raw = pytesseract.image_to_string(thresh, config=config)
+
+    # Clean output
+    lines = [line.strip() for line in raw.split("\n") if line.strip()]
+    mrz_lines = [l for l in lines if len(l) >= 30 and "<" in l]
+
+    if len(mrz_lines) >= 2:
+        return mrz_lines[0] + "\n" + mrz_lines[1]
+    else:
+        raise ValueError("MRZ could not be detected.")
+
 
 def load_image(file):
-    """Load image or PDF, and auto-rotate if needed."""
-    if file.type == "application/pdf":
-        pages = convert_from_bytes(file.read())
-        image = pages[0]
+    """
+    Detect if PDF or image and return OpenCV image
+    """
+    if file.filename.lower().endswith(".pdf"):
+        pages = convert_from_path(file.file)
+        img = pages[-1]                  # Passport MRZ usually last page
+        return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
     else:
-        image = Image.open(file)
-        # Handle EXIF rotation (for phone pictures)
-        try:
-            for orientation in ExifTags.TAGS.keys():
-                if ExifTags.TAGS[orientation] == 'Orientation':
-                    break
-            exif = dict(image._getexif().items())
-            if exif[orientation] == 3:
-                image = image.rotate(180, expand=True)
-            elif exif[orientation] == 6:
-                image = image.rotate(270, expand=True)
-            elif exif[orientation] == 8:
-                image = image.rotate(90, expand=True)
-        except Exception:
-            pass
-    return image
-
-
-def extract_mrz_data(image):
-    """Extract MRZ data (try original + rotated if needed)."""
-    # Convert to bytes
-    buf = io.BytesIO()
-    image.save(buf, format="JPEG")
-    img_bytes = buf.getvalue()
-
-    # Try reading MRZ normally
-    mrz = read_mrz(img_bytes)
-    if not mrz:
-        # Try rotated versions
-        for angle in [90, 180, 270]:
-            rotated = image.rotate(angle, expand=True)
-            buf = io.BytesIO()
-            rotated.save(buf, format="JPEG")
-            mrz = read_mrz(buf.getvalue())
-            if mrz:
-                break
-
-    return mrz
-
-
-def parse_mrz(mrz):
-    """Parse MRZ data into readable dict."""
-    if not mrz:
-        return None
-    data = mrz.to_dict()
-    return {
-        "First Name": data.get("names", "").replace("<", " "),
-        "Last Name": data.get("surname", "").replace("<", " "),
-        "Passport Number": data.get("number", ""),
-        "Nationality": data.get("nationality", ""),
-        "Date of Birth": data.get("date_of_birth", ""),
-        "Gender": data.get("sex", ""),
-        "Expiry Date": data.get("expiration_date", "")
-    }
-
-
-def generate_srdocs(data):
-    """Generate Amadeus SRDOCS command."""
-    if not data:
-        return "No MRZ data found."
-
-    docs = (
-        f"SRDOCS YY HK1-P/{data['Nationality']}/"
-        f"{data['Passport Number']}/{data['Nationality']}/"
-        f"{data['Date of Birth']}/{data['Gender']}/"
-        f"{data['Expiry Date']}/"
-        f"{data['Last Name'].strip()}/{data['First Name'].strip()}"
-    )
-    return docs
+        # Regular image
+        file_bytes = np.asarray(bytearray(file.file.read()), dtype=np.uint8)
+        return cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
