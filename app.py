@@ -1,31 +1,42 @@
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from passporteye import read_mrz
 from pdf2image import convert_from_bytes
+from PIL import Image
 import cv2
 import numpy as np
-from PIL import Image
 import io
+import os
 
 app = FastAPI(title="MRZ/Passport Extractor")
 
+# Serve frontend
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+async def index():
+    return FileResponse(os.path.join("static", "index.html"))
+
+# ---------- MRZ Extraction Logic ----------
+
 def preprocess_image(image: Image.Image):
     """
-    Preprocess the image for MRZ detection:
+    Preprocess image for MRZ detection:
     - Converts to grayscale
-    - Rotates if width < height
-    - Applies thresholding
+    - Rotates if portrait (height > width)
+    - Thresholding
     """
     img = np.array(image)
     
     # Convert to grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     
-    # Rotate if portrait (height > width)
+    # Rotate if portrait
     if gray.shape[0] > gray.shape[1]:
         gray = cv2.rotate(gray, cv2.ROTATE_90_CLOCKWISE)
     
-    # Thresholding to improve OCR
+    # Thresholding
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     
     return Image.fromarray(thresh)
@@ -60,10 +71,12 @@ def generate_amadeus_command(mrz_data, first_name, last_name):
            f"{mrz_data.get('nationality')}-{mrz_data.get('date_of_birth')}-" \
            f"{mrz_data.get('sex')}-{mrz_data.get('expiration_date')}-{last_name}/{first_name}"
 
+# ---------- API Endpoint ----------
+
 @app.post("/extract")
 async def extract(file: UploadFile = File(...)):
     """
-    Endpoint to extract MRZ from uploaded image/PDF
+    Extract MRZ from uploaded image/PDF
     """
     content = await file.read()
     
