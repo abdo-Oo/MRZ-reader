@@ -1,11 +1,17 @@
-fastapi
-uvicorn
-python-multipart
-pytesseract
-pdf2image
-Pillow
-mrz
-jinja2
-starlette
-itsdangerous
-starlette
+# Web framework
+starlette==0.26.1
+
+# WSGI/ASGI server
+uvicorn[standard]==0.23.2
+
+# Required for Starlette sessions
+itsdangerous==2.1.2
+
+# Optional: if you use FastAPI features
+fastapi==0.111.2
+
+# For any HTTP requests if needed
+requests==2.31.0
+
+# Environment variables support
+python-dotenv==1.0.0
