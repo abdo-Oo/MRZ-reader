@@ -7,3 +7,5 @@ Pillow
 mrz
 jinja2
 starlette
+itsdangerous
+starlette
