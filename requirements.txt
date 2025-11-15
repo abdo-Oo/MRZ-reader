@@ -4,3 +4,4 @@ passporteye
 pdf2image
 pillow
 opencv-python-headless
+python-multipart
