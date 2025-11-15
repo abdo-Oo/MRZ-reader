@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MRZ / Passport Extractor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        #drop-area {
+            border: 2px dashed #888;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            color: #555;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        #drop-area.hover {
+            border-color: #333;
+            background-color: #fafafa;
+        }
+
+        #fileElem {
+            display: none;
+        }
+
+        .result {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+
+        pre {
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>MRZ / Passport Extractor</h1>
+
+    <div id="drop-area">
+        <p>Drag & drop a passport image or PDF here<br>or click to select a file</p>
+        <input type="file" id="fileElem" accept="image/*,.pdf">
+    </div>
+
+    <div class="result" id="result" style="display:none;">
+        <h2>Extracted Data:</h2>
+        <pre id="mrzData"></pre>
+        <h2>Amadeus Command:</h2>
+        <pre id="amadeusCommand"></pre>
+    </div>
+</div>
+
+<script>
+    const dropArea = document.getElementById('drop-area');
+    const fileElem = document.getElementById('fileElem');
+    const resultDiv = document.getElementById('result');
+    const mrzDataPre = document.getElementById('mrzData');
+    const amadeusPre = document.getElementById('amadeusCommand');
+
+    // Highlight drop area on drag
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.add('hover');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.remove('hover');
+        }, false);
+    });
+
+    // Handle drop
+    dropArea.addEventListener('drop', e => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    });
+
+    // Handle click to select
+    dropArea.addEventListener('click', () => fileElem.click());
+    fileElem.addEventListener('change', e => handleFiles(fileElem.files));
+
+    async function handleFiles(files) {
+        if (files.length === 0) return;
+        const file = files[0];
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/extract', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                alert(err.error || 'Error processing file');
+                return;
+            }
+
+            const data = await response.json();
+            resultDiv.style.display = 'block';
+            mrzDataPre.textContent = JSON.stringify(data.mrz_data, null, 4);
+            amadeusPre.textContent = data.amadeus_command;
+
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    }
+</script>
+
+</body>
+</html>
