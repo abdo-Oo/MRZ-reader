@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MRZ Result</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+    <h2>MRZ Extraction Result</h2>
+
+    <h3>DOCS Code:</h3>
+    <textarea readonly>{{ docs_line }}</textarea>
+
+    <h3>Extracted MRZ:</h3>
+    <pre>{{ mrz_raw }}</pre>
+
+    <h3>Parsed Data:</h3>
+    <pre>{{ parsed_data }}</pre>
+
+    <a href="/">Back</a>
+</div>
+</body>
+</html>
