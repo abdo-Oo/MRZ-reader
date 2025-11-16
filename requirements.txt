@@ -1,7 +1,5 @@
-fastapi
-uvicorn[standard]
+flask
+werkzeug
 passporteye
+mrz
 pdf2image
-pillow
-opencv-python-headless
-python-multipart
