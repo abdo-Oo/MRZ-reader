@@ -1,5 +1,4 @@
 streamlit
-opencv-python
 pytesseract
 passporteye
 pdf2image
