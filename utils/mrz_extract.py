@@ -4,7 +4,6 @@ from PIL import Image
 
 def extract_mrz_from_image(image):
     pil_img = Image.fromarray(image)
-
     rotations = [0, 90, 180, 270]
 
     for angle in rotations:
@@ -15,8 +14,7 @@ def extract_mrz_from_image(image):
             mrz = read_mrz(rotated_np)
             if mrz:
                 return mrz.to_dict(), rotated_np
-        except Exception as e:
-            # Skip invalid rotations
+        except:
             continue
 
     return None, image
