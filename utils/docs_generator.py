@@ -5,6 +5,9 @@ def format_amadeus_date(date_str):
     return d.strftime("%d%b%y").upper()
 
 def generate_docs(mrz):
+    """
+    Build Amadeus DOCS command.
+    """
     return (
         f"SRDOCS-P1/P/"
         f"{mrz['nationality']}/"
