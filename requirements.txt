@@ -1,5 +1,8 @@
-flask
-werkzeug
+streamlit
+opencv-python
+pytesseract
 passporteye
-mrz
 pdf2image
+Pillow
+numpy
+python-dateutil
