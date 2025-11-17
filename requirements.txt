@@ -1,7 +1,7 @@
 streamlit
+pymupdf
 pytesseract
 passporteye
-pdf2image
 Pillow
 numpy
 python-dateutil
