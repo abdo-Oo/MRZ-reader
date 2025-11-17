@@ -3,6 +3,10 @@ from passporteye import read_mrz
 from PIL import Image
 
 def extract_mrz_from_image(image):
+    """
+    Attempts MRZ extraction at 4 rotations.
+    Returns (mrz_dict, rotated_img) or (None, original_img)
+    """
     pil_img = Image.fromarray(image)
     rotations = [0, 90, 180, 270]
 
