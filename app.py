@@ -19,7 +19,11 @@ if uploaded:
     st.image(image, caption="Uploaded File", use_column_width=True)
 
     st.write("🔍 Extracting MRZ...")
-    mrz_data, rotated_img = extract_mrz_from_image(image)
+from utils.image_cleaner import normalize_image
+
+clean_image = normalize_image(image)
+
+mrz_data, rotated_img = extract_mrz_from_image(clean_image)
 
     if not mrz_data:
         st.error("❌ MRZ could not be detected. Try a clearer image.")
