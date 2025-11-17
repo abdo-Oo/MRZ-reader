@@ -4,15 +4,15 @@ def format_amadeus_date(date_str):
     d = parse(date_str)
     return d.strftime("%d%b%y").upper()
 
-def generate_docs(mrz_data, pax_number=1):
+def generate_docs(mrz):
     return (
-        f"SRDOCS-P{pax_number}/P/"
-        f"{mrz_data['nationality']}/"
-        f"{mrz_data['passport_number']}/"
-        f"{mrz_data['country']}/"
-        f"{format_amadeus_date(mrz_data['date_of_birth'])}/"
-        f"{mrz_data['sex']}/"
-        f"{format_amadeus_date(mrz_data['expiration_date'])}/"
-        f"{mrz_data['surname']}/"
-        f"{mrz_data['given_names'].replace(' ', '-')}"
+        f"SRDOCS-P1/P/"
+        f"{mrz['nationality']}/"
+        f"{mrz['passport_number']}/"
+        f"{mrz['country']}/"
+        f"{format_amadeus_date(mrz['date_of_birth'])}/"
+        f"{mrz['sex']}/"
+        f"{format_amadeus_date(mrz['expiration_date'])}/"
+        f"{mrz['surname']}/"
+        f"{mrz['given_names'].replace(' ', '-')}"
     )
